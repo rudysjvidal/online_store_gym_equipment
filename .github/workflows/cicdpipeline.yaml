@@ -8,53 +8,40 @@ on:
     branches:
       - main  # Trigger workflow on pull request targeting main branch
 
-permissions: 
-  contents: read  # Allow read access to the repository contents
-  id-token: write  # Allow writing of ID token (for authentication)
-  issues: write  # Allow write access to issues (for PR comments)
-  pull-requests: write  # Allow write access to pull requests (for comments)
-
 jobs:
   Scan-and-Deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - run: echo "Starting CI/CD workflow. status ${{ job.status }}"
+      
+      - name: Check out repo
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch the entire history for proper scanning
-      
+          fetch-depth: 0  # Ensure entire history is fetched for proper scanning
+
       - name: Install dependencies
-        run: npm ci  # Install dependencies
+        run: npm ci  # Install dependencies (corrected the npm command)
       
-      - run: echo "Pipeline run successfully. Have a great day!"
+      - run: echo "Pipeline run successfully. Have a great day! status ${{ job.status }}"
 
   TruffleHog:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash  # Use bash for running commands
-
     steps:
-      # Checkout the code repository (same as the Scan-and-Deploy job)
+      # Checkout code to make sure TruffleHog has access to the repository
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Ensure all history is available for scanning
-
-      # Run TruffleHog scan
-      - name: Run TruffleHog OSS
-        id: trufflehog
-        uses: trufflesecurity/trufflehog@v2.0.0  # Correct the version to a valid release
-        continue-on-error: true  # Allow the workflow to continue even if secrets are found
+          fetch-depth: 0  # Fetch full history for scanning
+      
+      # Run TruffleHog to scan for secrets
+      - name: Secret Scanning
+        uses: trufflesecurity/trufflehog@main  # Use the latest version from the main branch
         with:
-          path: ./  # Scan the repository root
-          base: "${{ github.event.repository.default_branch }}"  # Base branch (main or default)
-          head: HEAD  # Scan the latest commit
-          extra_args: --debug --only-verified  # Additional flags for verbose output and verified secrets only
-
-      # Check scan results and fail if high-severity secrets are found
-      - name: Fail the pipeline if secrets are found
-        if: steps.trufflehog.outcome == 'failure'  # If TruffleHog finds secrets
+          extra_args: --results=verified,unknown  # Scan for verified and unknown secrets
+      
+      # Fail the workflow if secrets are detected
+      - name: Fail on secrets detection
+        if: failure()  # If the previous step fails (i.e., secrets are detected)
         run: |
-          echo "TruffleHog found secrets in the repository. Failing the build."
-          exit 1  # Fail the workflow if high-severity secrets are detected
+          echo "TruffleHog found secrets. Failing the build."
+          exit 1  # Force the workflow to fail
