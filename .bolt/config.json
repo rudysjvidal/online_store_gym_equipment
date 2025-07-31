@@ -1,3 +1,4 @@
 {
-  "template": "node"
+  "template": "node",
+  "API_KEY": "12345-abcdefg-test-api-key"
 }
