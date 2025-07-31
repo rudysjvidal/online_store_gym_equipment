@@ -32,6 +32,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch full history for scanning
+
+      - name: scan-push
+        uses: trufflesecurity/trufflehog@main
+        with:
+          base: ""
+          head: ${{ github.ref_name }}
+          extra_args: --results=verified,unknown
       
       # Run TruffleHog to scan for secrets
       - name: Secret Scanning
