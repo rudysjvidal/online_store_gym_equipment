@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "Starting CI/CD workflow. status ${{ job.status }}"
-      
+
       - name: Check out repo
         uses: actions/checkout@v4
         with:
@@ -21,34 +21,30 @@ jobs:
 
       - name: Install dependencies
         run: npm ci  # Install dependencies (corrected the npm command)
-      
+
       - run: echo "Pipeline run successfully. Have a great day! status ${{ job.status }}"
 
   TruffleHog:
     runs-on: ubuntu-latest
     steps:
-      # Checkout code to make sure TruffleHog has access to the repository
+      # Checkout code to ensure TruffleHog has access to the repository
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch full history for scanning
 
-      - name: scan-push
+      # Scan the entire branch using TruffleHog
+      - name: Scan entire branch for secrets
+        id: trufflehog_scan
         uses: trufflesecurity/trufflehog@main
         with:
-          base: ""
-          head: ${{ github.ref_name }}
-          extra_args: --results=verified,unknown
-      
-      # Run TruffleHog to scan for secrets
-      - name: Secret Scanning
-        uses: trufflesecurity/trufflehog@main  # Use the latest version from the main branch
-        with:
-          extra_args: --results=verified,unknown  # Scan for verified and unknown secrets
-      
-      # Fail the workflow if secrets are detected
-      - name: Fail on secrets detection
-        if: failure()  # If the previous step fails (i.e., secrets are detected)
+          base: ""  # Empty base to scan from the beginning of the branch
+          head: ${{ github.ref_name }}  # Current branch reference
+          extra_args: --results=verified,unknown  # Only include verified and unknown secrets
+
+      # Check if TruffleHog scan failed (i.e., secrets were found) and fail the build
+      - name: Fail the build on secret detection
+        if: steps.trufflehog_scan.outcome == 'failure'  # If secrets are found
         run: |
-          echo "TruffleHog found secrets. Failing the build."
-          exit 1  # Force the workflow to fail
+          echo "TruffleHog detected secrets. Failing the build."
+          exit 1  # Force failure
